@@ -1,0 +1,382 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >-
+  CloudFormation stack to create a SAP ABAP Developer Edition in an EC2 instance within a provided private subnet and VPC
+
+#*************************************************
+# Parameters
+#*************************************************
+Parameters:
+  Environment:
+    Description: An environment name that will be prefixed to resource names
+    Type: String
+    Default: blogdemo
+
+  VPCID:
+    Description: ID of the VPC to use for creating the resources in this stack'
+    Type: String
+    AllowedPattern: ".+"
+    ConstraintDescription: "VPC ID is required"
+
+  SAPSubnet:
+    Description: The existing private subnet in your VPC where you want to deploy the SAP ABAP Developer Edition
+    Type: AWS::EC2::Subnet::Id
+    AllowedPattern: ".+"
+    ConstraintDescription: "SAP Subnet is required"
+
+  VpcCIDR: 
+    Description: Please enter the IP range (CIDR notation) for the newly created VPC
+    Type: String
+    Default: 10.1.0.0/16
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
+    ConstraintDescription: This must be a valid CIDR range in the format x.x.x.x/x.
+  
+  SAPSubnetCIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet where the SAP system will be installed
+    Type: String
+    Default: 10.1.20.0/24
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
+    ConstraintDescription: This must be a valid CIDR range in the format x.x.x.x/x.
+
+  BASTIONCIDR:
+    Description: CIDR block of the subnet where your Bastion host exists.
+    Type: String
+    Default: 172.31.0.0/16
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}'
+    ConstraintDescription: This must be a valid CIDR range in the format x.x.x.x/x.
+  
+  SAPInstanceType:
+    Description: Instance type for the SAP ABAP Developer Edition
+    Type: String
+    Default: r4.large
+    AllowedValues:
+      - m4.xlarge
+      - m4.2xlarge
+      - m4.4xlarge
+      - m4.10xlarge
+      - m5.xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+      - m5.12xlarge
+      - c4.large
+      - c4.xlarge
+      - c4.2xlarge
+      - c4.4xlarge
+      - c4.8xlarge
+      - c5.xlarge
+      - c5.2xlarge
+      - c5.4xlarge
+      - c5.9xlarge
+      - r4.large
+      - r4.xlarge
+      - r4.2xlarge
+      - r4.4xlarge
+      - r4.8xlarge
+  
+  AMIId:
+    Description: Image ID of the AMI to use
+    Type: String
+    Default: 'ami-03a47595d0126bd82'
+  
+  KeyName:
+    Description: Name of the existing Amazon EC2 key pair. All instances will launch with this key pair
+    Type: AWS::EC2::KeyPair::KeyName
+    AllowedPattern: ".+"
+    ConstraintDescription: "Key Pair name is required for creating EC2 instances"
+
+  SAPDomainName:
+    Description: Name to use for the fully qualified domain names
+    Type: String
+    Default: dummy.nodomain
+    AllowedPattern: ".+"
+    ConstraintDescription: "Domain name for the SAP system is required"
+  
+  SAPHostName:
+    Description: Hostname to use for the SAP ABAP Developer Edition
+    Type: String
+    MaxLength: '13'
+    Default: vhcalnplci
+    AllowedPattern: ".+"
+    ConstraintDescription: "Hostname for the SAP system is required"
+  
+  SAPEBSVolumeSize:
+    Description: SAP EBS Volume size
+    Type: Number
+    Default: 200
+
+  SAPInstallMediaBucket:
+    Description: Bucket name where SAP install media is stored
+    Type: String
+    Default: "aws-sap-demo-artifacts"
+    
+  SAPInstallMediaFolder:
+    Description: S3 Folder location of SAP ABAP Developer Edition software (e.g., /devedition).
+    Type: String
+    Default: "sap-install-files/nw-ase-dev-edition/"
+ 
+  SAPMasterPwd:
+    NoEcho: true
+    Description: Master password for the SAP ABAP system
+    Type: String
+    Default: "initpass1"
+    AllowedPattern: ".+"
+    ConstraintDescription: "SAP Master password is required"
+
+  SAPInstallationTimeOut:
+    Description: Time out for SAP Installation
+    Type: Number
+    Default: 18000    
+
+#*************************************************
+# Metadata
+#*************************************************
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "S3 location details for various artifacts"
+        Parameters:
+          - SAPInstallMediaBucket
+          - SAPInstallMediaFolder
+      -
+        Label:
+          default: "Network Details"
+        Parameters:
+          - VPCID
+          - VpcCIDR
+          - SAPSubnetCIDR
+          - BASTIONCIDR
+      -
+        Label:
+          default: "SAP System Details"
+        Parameters:
+            - SAPInstanceType
+            - AMIId
+            - SAPEBSVolumeSize
+            - KeyName
+            - SAPDomainName
+            - SAPHostName
+            - SAPMasterPwd
+            - SAPInstallationTimeOut
+      -
+        Label:
+          default: "Other Details"
+        Parameters:
+            - Environment
+
+    ParameterLabels:
+      Environment:
+        default: "Tag to use in the name of the resources created in this template"
+      VPCID:
+        default: "ID of the VPC where SAP system needs to be installed"
+      VpcCIDR:
+        default: "The CIDR of your VPC where the SAP developer edition will be deployed"
+      SAPSubnetCIDR:
+        default: "The CIDR of the private subnet where the SAP developer edition will be deployed"
+      BASTIONCIDR:
+        default: "The CIDR of the VPC or Subnet where your Bastion host is installed"
+      SAPInstanceType:
+        default: "Choose instance type for SAP"
+      SAPEBSVolumeSize:
+        default: "Enter the EBS volume size for SAP"
+      InstallSAP:
+        default: "Do you want to install SAP software?"
+      KeyName:
+        default: "Choose key pair for SAP EC2 instance"
+      SAPDomainName:
+        default: "Enter domain name"
+      SAPHostName:
+        default: "Enter SAP hostname"
+      SAPInstallMediaBucket:
+        default: Bucket name where SAP install media is stored
+      SAPInstallMediaFolder:
+        default: S3 Folder location of SAP ABAP Developer Edition software (e.g., /devedition).
+      SAPMasterPwd:
+        default: "Master password to use for the SAP Database"
+      SAPInstallationTimeOut:
+        default: "Enter the time out for SAP Installation"
+
+#*************************************************
+# Resources
+#*************************************************
+Resources:
+#+++++++++++++++
+  #Install SAP ABAP developer edition in a private subnet
+#+++++++++++++++
+  SAPIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Environment}_ec2_role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - 
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "ec2.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+  
+  SAPIAMPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "${Environment}_ec2_policy"
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: "Allow"
+            Action: 
+              - "s3:Get*"
+              - "s3:List*"
+            Resource:
+              - !Sub "arn:aws:s3:::${SAPInstallMediaBucket}"
+              - !Sub "arn:aws:s3:::${SAPInstallMediaBucket}/*"
+      Roles:
+        - Ref: "SAPIAMRole"
+
+  SAPIAMProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      InstanceProfileName: !Sub "${Environment}_ec2_instanceprofile"
+      Roles: 
+        - Ref: SAPIAMRole
+
+  #+++++++++++++++
+  #Security Groups
+  #+++++++++++++++
+  SAPSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName : !Sub "sap_${Environment}_sg"
+      GroupDescription: Enable access to SAP ABAP Developer Edition system
+      VpcId: !Ref VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          CidrIp: !Ref SAPSubnetCIDR
+          FromPort: 1
+          ToPort: 65535
+
+        - IpProtocol: tcp
+          CidrIp: !Ref VpcCIDR
+          FromPort: 8000
+          ToPort: 8000
+
+        - IpProtocol: tcp
+          CidrIp: !Ref VpcCIDR
+          FromPort: 44300
+          ToPort: 44300
+
+        - IpProtocol: tcp
+          CidrIp: !Ref VpcCIDR
+          FromPort: 22
+          ToPort: 22
+        
+        - IpProtocol: tcp
+          CidrIp: !Ref VpcCIDR
+          FromPort: 3200
+          ToPort: 3200
+
+        - IpProtocol: tcp
+          CidrIp: !Ref BASTIONCIDR
+          FromPort: 22
+          ToPort: 22
+        
+        - IpProtocol: tcp
+          CidrIp: !Ref BASTIONCIDR
+          FromPort: 8000
+          ToPort: 8000
+        
+        - IpProtocol: tcp
+          CidrIp: !Ref BASTIONCIDR
+          FromPort: 44300
+          ToPort: 44300
+        
+        - IpProtocol: tcp
+          CidrIp: !Ref BASTIONCIDR
+          FromPort: 3200
+          ToPort: 3200
+
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          FromPort: 1
+          ToPort: 65535
+
+  #+++++++++++++++
+  #SAP Network Interface
+  #+++++++++++++++ 
+  SAPNetworkInterface:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      Description: Network Interface for SAP Instance
+      SubnetId: !Ref SAPSubnet
+      GroupSet:
+        - Ref: SAPSecurityGroup
+      SourceDestCheck: true
+      Tags:
+        - Key: Network
+          Value: Private
+
+  #+++++++++++++++
+  #Wait Handler and Wait conditions
+  #+++++++++++++++          
+  SAPInstallerWaitHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+    Properties: {}
+  
+  SAPInstallerWaitCondition:
+    Type: AWS::CloudFormation::WaitCondition
+    DependsOn: SAPABAPInstance
+    Properties:
+      Handle: !Ref SAPInstallerWaitHandle
+      Timeout: !Ref SAPInstallationTimeOut
+      Count: 1
+
+  #+++++++++++++++
+  #SAP ABAP EC2 Instance
+  #+++++++++++++++          
+  SAPABAPInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AMIId
+      InstanceType: !Ref SAPInstanceType
+      KeyName: !Ref KeyName
+      NetworkInterfaces:
+        - NetworkInterfaceId: !Ref SAPNetworkInterface
+          DeviceIndex: "0"
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: !Ref SAPEBSVolumeSize
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}_gw_abap"
+        - Key: Application
+          Value: !Ref AWS::StackId
+      IamInstanceProfile: !Ref SAPIAMProfile
+      UserData:
+        Fn::Base64: !Sub 
+          - ${userData}
+          - userData: !Sub |
+              #! /bin/bash -xv
+              hostname ${SAPHostName}
+              echo ${SAPHostName}.${SAPDomainName} > /etc/HOSTNAME
+              echo ${SAPHostName}.${SAPDomainName} > /etc/hostname
+              echo -e "${SAPNetworkInterface.PrimaryPrivateIpAddress}\t${SAPHostName}\t${SAPHostName}.${SAPDomainName}" >> /etc/hosts
+              cd /home/ec2-user/
+              mkdir installfiles
+              cd installfiles
+              sudo su
+              aws s3 cp s3://${SAPInstallMediaBucket}/${SAPInstallMediaFolder} . --recursive
+              zypper -n install unrar
+              zypper -n install uuidd
+              service uuidd start
+              unrar x sap_netweaver_as_abap_751_sp02_ase_dev_edition_part01.rar
+              chmod 755 install.sh
+              echo -e "\nyes\n${SAPMasterPwd}\n${SAPMasterPwd}\n" | sh install.sh &> /home/ec2-user/install_log.txt
+              curl -X PUT -H 'Content-Type:' "${SAPInstallerWaitHandle}" \
+              --data-binary '{"Status":"SUCCESS","Reason":"Configuration Complete","UniqueId":"ID1234","Data":"SAP install complete."}'
