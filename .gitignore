@@ -1,7 +1,7 @@
 #My Custom
 /local
 /build
-deploystacklocal.sh
+./deploystacklocal.sh
 
 # OS X
 .DS_Store
