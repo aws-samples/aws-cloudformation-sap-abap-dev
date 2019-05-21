@@ -2,6 +2,7 @@
 /local
 /build
 ./deploystacklocal.sh
+/tmp
 
 # OS X
 .DS_Store
