@@ -34,16 +34,12 @@ Note: The repository doesn't contain the SAP ABAP Developer Edition media files.
 cd aws-cloudformation-sap-abap-dev
 ```
 
-- In case of deploying SAP ABAP Developer edition to an existing VPC, edit file deploystackwithoutVPC.sh with the required variable values as per your setup [Lines 4 to 11]
-
-- Execute the script
+- In case of deploying SAP ABAP Developer edition to an existing VPC, edit file deploystackwithoutVPC.sh with the required variable values as per your setup [Lines 4 to 11]. Then execute the script
 ```bash
 ./deploystackwithoutVPC.sh
 ```
 
-- In case of deploying SAP ABAP Developer edition in a new VPC, edit file deploystackwithVPC.sh with the required variable values as per your setup [Lines 4 to 6]
-
-- Execute the script
+- In case of deploying SAP ABAP Developer edition in a new VPC, edit file deploystackwithVPC.sh with the required variable values as per your setup [Lines 4 to 6]. Then execute the script
 ```bash
 ./deploystackwithVPC.sh
 ```
